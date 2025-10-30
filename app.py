@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
 import shutil
+from custom_classes import Song, Cassette
+import json
 
 
 LARGEFONT = QFont("Verdana", 24)
@@ -23,14 +25,13 @@ class CassetteApp(QMainWindow):
             }
             QPushButton {
                 background-color: #FFDB78;
-                border: 2px solid #5A57A3;
                 border-radius: 10px;
                 padding: 8px 16px;
                 font-size: 14px;
-                color: white;
+                color: black;
             }
             QPushButton:hover {
-                background-color: #FFF2D0;
+                background-color: #DEBE64;
             }
             QPushButton:pressed {
                 background-color: #FFF2D0;
@@ -124,20 +125,20 @@ class Page1(QWidget):
         p1.addLayout(nav_layout)
         
         
-        song_name = QTextEdit()
-        song_name.setPlaceholderText("Song Name...")
-        p1.addWidget(song_name)
+        self.song_name = QTextEdit()
+        self.song_name.setPlaceholderText("Song Name...")
+        p1.addWidget(self.song_name)
         
-        artist_name = QTextEdit()
-        artist_name.setPlaceholderText("Artist Name...")
-        p1.addWidget(artist_name)
+        self.artist_name = QTextEdit()
+        self.artist_name.setPlaceholderText("Artist Name...")
+        p1.addWidget(self.artist_name)
 
         import_button = QPushButton("Import Audio File")
         import_button.clicked.connect(self.import_file)
         p1.addWidget(import_button)
 
         add_song = QPushButton("Confirm")
-        add_song.clicked.connect(self.add_file)
+        add_song.clicked.connect(self.add_song)
         p1.addWidget(add_song)
         
         self.setLayout(p1)
@@ -155,18 +156,39 @@ class Page1(QWidget):
         if file_path:
             print("Selected file:", file_path)
             self.file_path = file_path
-    def add_file(self):
-        source = self.file_path
-        dest_path = 'songs'
-        os.makedirs(dest_path, exist_ok=True)
-        try:
-            shutil.copy(source, dest_path)
-            print(f"File '{source}' successfully copied to '{dest_path}'")
-            self.file_path = None
-        except FileNotFoundError:
-            print(f"Error: Source file not found.")
-        except Exception as e:
-            print(f"An error occurred: {e}")
+
+    def add_song(self):
+        if self.file_path:
+            source = self.file_path
+            file_name = os.path.basename(source)
+            dest_path = 'data/songs'
+            os.makedirs(dest_path, exist_ok=True)
+            try:
+                shutil.copy(source, dest_path)
+                print(f"File '{source}' successfully copied to '{dest_path}'")
+                title = self.song_name.toPlainText()
+                artist = self.artist_name.toPlainText()
+                new_song = Song(f"songs/{file_name}", title, artist)
+                songs.append(new_song)
+                print(songs)
+                #move this into a seperate function later
+                try:
+                    with open("data/songs.json", "r") as file:
+                        data = json.load(file)
+                except FileNotFoundError:
+                    data = [] 
+                data.append(new_song.to_dict())
+                with open("data/songs.json", "w") as file:
+                    json.dump(data, file, indent=4)
+                self.file_path = None
+                self.song_name.clear()
+                self.artist_name.clear()
+            except FileNotFoundError:
+                print(f"Error: Source file not found.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+        else:
+            print("No file selected, please retry")
         
 
     

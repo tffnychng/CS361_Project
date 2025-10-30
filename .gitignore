@@ -1,2 +1,2 @@
-songs/*.mp3
+data/songs
 oldapp.py
