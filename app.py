@@ -5,19 +5,28 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QFileDialog, QTextEdit)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
+import pygame
 import shutil
 from custom_classes import Song, Cassette
 import json
 
 
 LARGEFONT = QFont("Verdana", 24)
-songs = []
+songs = [Song("data/songs/girlfront.mp3", "Girl Front", "Loona OEC")]
+current_song = None
+is_paused = False
 
 class CassetteApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Cassette Archive")
         self.setGeometry(100, 100, 400, 500)
+
+        self.music_player = MusicPlayer()
+        self.music_player.songs = songs
+        self.music_player.load_song(songs[0])
+        print(self.music_player.current_song)
+
         
         self.setStyleSheet("""
             QMainWindow {
@@ -56,11 +65,13 @@ class CassetteApp(QMainWindow):
         for _, page in self.pages.items():
             self.stk.addWidget(page)
         
-        self.show_page('page1')
+        self.show_page('page2')
     
     def show_page(self, pgName):
         if pgName in self.pages:
             self.stk.setCurrentWidget(self.pages[pgName])
+    def add_song_to_library(self, song: Song):
+        self.music_player.add_song(song)
     
 
 class StartPage(QWidget):
@@ -142,9 +153,6 @@ class Page1(QWidget):
         p1.addWidget(add_song)
         
         self.setLayout(p1)
-    
-    def update_song_list(self):
-        pass
 
     def import_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -168,7 +176,7 @@ class Page1(QWidget):
                 print(f"File '{source}' successfully copied to '{dest_path}'")
                 title = self.song_name.toPlainText()
                 artist = self.artist_name.toPlainText()
-                new_song = Song(f"songs/{file_name}", title, artist)
+                new_song = Song(f"data/songs/{file_name}", title, artist)
                 songs.append(new_song)
                 print(songs)
                 #move this into a seperate function later
@@ -208,11 +216,93 @@ class Page2(QWidget):
         title_label.setFont(LARGEFONT)
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
-    
+        nav_layout = QHBoxLayout()
+        
+        start_button = QPushButton("Start Page")
+        start_button.clicked.connect(lambda: self.parent.show_page('start'))
+        nav_layout.addWidget(start_button)
+        
+        page1_button = QPushButton("Song Library")
+        page1_button.clicked.connect(lambda: self.parent.show_page('page1'))
+        nav_layout.addWidget(page1_button)
+        
+        layout.addLayout(nav_layout)
+        play_view = QVBoxLayout()
+
+        cover_art = QLabel()
+        img = QPixmap(self.parent.music_player.current_song.cover)
+        if not img.isNull():
+            img = img.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            cover_art.setPixmap(img)
+        else:
+            cover_art.setText("Image not found")
+        cover_art.setAlignment(Qt.AlignCenter)
+        play_view.addWidget(cover_art)
+        
+        self.now_playing_label = QLabel(f"Playing: {self.parent.music_player.current_song.title}")
+        self.now_playing_label.setAlignment(Qt.AlignCenter)
+        play_view.addWidget(self.now_playing_label)
+        layout.addLayout(play_view)
+
+        controls_layout = QHBoxLayout()
+        play_button = QPushButton("Play")
+        play_button.clicked.connect(self.play_current_song)
+        controls_layout.addWidget(play_button)
+        pause_button = QPushButton("Pause")
+        pause_button.clicked.connect(self.pause_current_song)
+        controls_layout.addWidget(pause_button)
+        layout.addLayout(controls_layout)
         
         self.setLayout(layout)
 
+    def play_current_song(self):
+        if self.parent.music_player.current_song:
+            self.parent.music_player.play()
+            self.now_playing_label.setText(f"Playing: {self.parent.music_player.current_song.title}")
+        else:
+            print("No song loaded. Please select a song first.")
+    
+    def pause_current_song(self):
+        if self.parent.music_player.is_playing:
+            self.parent.music_player.pause()
 
+class MusicPlayer:
+    def __init__(self):
+        pygame.mixer.init()
+        self.current_song = None
+        self.is_playing = False
+        self.is_paused = False
+        self.songs = []  
+    
+    def load_song(self, song: Song):
+        try:
+            pygame.mixer.music.load(song.file_path)
+            self.current_song = song
+            self.is_playing = False
+            self.is_paused = False
+            print(song.file_path)
+            return True
+        except Exception as e:
+            print(f"Error loading song: {e}")
+            return False
+    
+    def play(self):
+        if self.current_song and not self.is_playing:
+            pygame.mixer.music.play()
+            self.is_playing = True
+            self.is_paused = False
+        if self.is_playing and self.is_paused:
+            pygame.mixer.music.unpause()
+            self.is_paused = False
+    
+    def pause(self):
+        if self.is_playing and not self.is_paused:
+            pygame.mixer.music.pause()
+            self.is_paused = True
+    
+    
+    def add_song(self, song: Song):
+        self.songs.append(song)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

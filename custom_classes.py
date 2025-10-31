@@ -11,6 +11,7 @@ class Song:
     album: str = "Unknown Album"
     genre: str = "Unknown Genre"
     duration: float = 0.0  
+    cover: str = "assets/placeholder_cover.png"
     
     def __post_init__(self):
         if not self.title:
@@ -44,6 +45,7 @@ class Cassette:
     name: str
     songs: list[Song]  
     notes: dict[str, str] = None
+    cover: str = "assets/placeholder_conver.png"
     
     def __post_init__(self):
       if self.notes is None:
@@ -73,7 +75,8 @@ class Cassette:
           return {
               'name': self.name,
               'songs': self.songs,
-              'notes': self.notes
+              'notes': self.notes,
+              'cover_path': self.cover_path
           }
     
     def from_dict(cls, data: dict) -> 'Song':
