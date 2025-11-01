@@ -28,6 +28,7 @@ class Song:
               'genre': self.genre,
               'duration': self.duration
           }
+    @classmethod
     def from_dict(cls, data: dict) -> 'Song':
       return cls(
           file_path=data['file_path'],
@@ -79,6 +80,7 @@ class Cassette:
               'cover_path': self.cover_path
           }
     
+    @classmethod
     def from_dict(cls, data: dict) -> 'Song':
       return cls(
           name=data['name'],

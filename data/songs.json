@@ -1,16 +1,16 @@
 [
     {
-        "file_path": "songs/LOONA_ODD EYE CIRCLE - Girl Front - \uc774\ub2ec\uc758 \uc18c\ub140 \uc624\ub4dc\uc544\uc774\uc368\ud074 - SoundLoadMate.com.mp3",
-        "title": "girl front",
-        "artist": "girl front",
-        "album": "Unknown Album",
-        "genre": "Unknown Genre",
+        "file_path": "data/songs/girlfront.mp3",
+        "title": "Girl Front",
+        "artist": "LOONA OEC",
+        "album": "Mix & Match",
+        "genre": "K-pop",
         "duration": 0.0
     },
     {
-        "file_path": "songs/Mr Smith - Take That Ride.mp3",
-        "title": "flip that",
-        "artist": "flip that",
+        "file_path": "data/songs/Wham! - Last Christmas (Audio).mp3",
+        "title": "Last Christmas",
+        "artist": "Wham",
         "album": "Unknown Album",
         "genre": "Unknown Genre",
         "duration": 0.0
