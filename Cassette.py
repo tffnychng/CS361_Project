@@ -1,45 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 import os
-from datetime import datetime
-
-@dataclass
-class Song:
-    file_path: str
-    title: str
-    artist: str
-    album: str = "Unknown Album"
-    genre: str = "Unknown Genre"
-    duration: float = 0.0  
-    cover: str = "assets/placeholder_cover.png"
-    
-    def __post_init__(self):
-        if not self.title:
-            self.title = os.path.basename(self.file_path)
-        if not self.artist:
-            self.artist = "Unknown Artist"
-    
-    def to_dict(self) -> dict:
-          return {
-              'file_path': self.file_path,
-              'title': self.title,
-              'artist': self.artist,
-              'album': self.album,
-              'genre': self.genre,
-              'duration': self.duration
-          }
-    @classmethod
-    def from_dict(cls, data: dict) -> 'Song':
-      return cls(
-          file_path=data['file_path'],
-          title=data['title'],
-          artist=data['artist'],
-          album=data['album'],
-          genre=data['genre'],
-          duration=data['duration']
-      )
-    
-    
+from Song import Song
 
 @dataclass
 class Cassette:

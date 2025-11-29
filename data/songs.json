@@ -30,5 +30,23 @@
         "album": "Unknown Album",
         "genre": "Unknown Genre",
         "duration": 0.0
+    },
+    {
+        "file_path": "data/songs/Zara Larsson - Midnight Sun (Official Music Video).mp3",
+        "title": "Midnight Sun",
+        "artist": "Zara Larsson",
+        "album": "Unknown Album",
+        "genre": "Unknown Genre",
+        "duration": 0.0
+    },
+    {
+        "file_path": "data/songs/ROSAL\u00cdA, Yahritza Y Su Esencia - La Perla (Official Lyric Video) [gEHK00H_PxQ].mp3",
+        "title": "La Perla",
+        "artist": "ROSAL\u00cdA",
+        "album": "LUX",
+        "genre": "latin",
+        "duration": 0.0,
+        "cover_url": "https://i.scdn.co/image/ab67616d0000b27393ee2e2f2dfb7de9befcc164",
+        "cover_path": "data/covers/La Perla_ROSAL\u00cdA.jpeg"
     }
 ]

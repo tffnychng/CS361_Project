@@ -8,8 +8,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont, QKeyEvent
 import pygame
 import shutil
-from custom_classes import Song, Cassette
+from Song import Song
+from Storage import Storage
+from MusicPlayer import MusicPlayer
 import json
+import zmq
+import requests
 
 
 LARGEFONT = QFont("Verdana", 30)
@@ -19,9 +23,10 @@ class CassetteApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("Cassette Archive")
         self.setFixedSize(400,500)
-        storage = Storage()
-        self.music_player = MusicPlayer(storage)
+        self.storage = Storage()
+        self.music_player = MusicPlayer(self.storage)
         print(self.music_player.songs)
+        self.setup_zmq_client()
 
         
         self.setStyleSheet("""
@@ -68,6 +73,38 @@ class CassetteApp(QMainWindow):
     def show_page(self, pgName):
         if pgName in self.pages:
             self.stk.setCurrentWidget(self.pages[pgName])
+    def setup_zmq_client(self):
+        try:
+            self.zmq_context = zmq.Context()
+            self.zmq_socket = self.zmq_context.socket(zmq.REQ)
+            self.zmq_socket.connect("tcp://localhost:5555")  
+            print("ZeroMQ client connected to microservice")
+        except Exception as e:
+            print(f"Failed to setup ZeroMQ client: {e}")
+            self.zmq_socket = None
+
+    def get_song_info(self, song_name: str, artist_name: str) -> dict:
+        if not self.zmq_socket:
+            return {"error": "Microservice not available"}
+        
+        try:
+            # Send request to microservice
+            request = {
+                "type": "song",
+                "song": song_name,
+                "artist": artist_name
+            }
+            self.zmq_socket.send_json(request)
+            
+            # Receive response
+            response = self.zmq_socket.recv_json()
+            print("response received")
+            return response.get("playlist", [{}])[0]  # Get first result
+            
+        except zmq.Again:
+            return {"error": "Microservice timeout"}
+        except Exception as e:
+            return {"error": f"Microservice error: {str(e)}"}
 
 class StartPage(QWidget):
     def __init__(self, parent):
@@ -176,6 +213,48 @@ class AddSong(QWidget):
             self.file_path = file_path
         self.import_button.setStyleSheet("background-color: #DEBE64;")
 
+    def call_spotify_microservice(self):
+        song_name = self.song_name.toPlainText()
+        artist_name = self.artist_name.toPlainText()
+        song_info = self.parent.get_song_info(song_name, artist_name)
+        if "error" in song_info:
+            print(f"Error: {song_info['error']}")
+            return
+        else:
+            self.song_name.setText(song_info.get("name", song_name))
+            self.artist_name.setText(song_info.get("artist", artist_name))
+            self.microservice_data = song_info
+    
+    def call_image_microservice(self, song):
+        os.makedirs('data/covers', exist_ok=True)
+        if not song.cover_url:
+            return
+        song_path = f"data/covers/{song.title}_{song.artist}.jpeg"
+        url = song.cover_url
+        response = requests.post(
+            "http://localhost:5001/api/cover/process",
+            json={"image_url": url, "size": 200}
+        )
+        result = response.json()
+
+        try:
+            if result["status"] == "success":
+                print("Processing successful")
+                print(f"Dimensions: {result['dimensions']}")
+                print(f"Format: {result['format']}")
+                image_data = bytes.fromhex(result["image_data"])
+                with open(song_path, "wb") as f:
+                    f.write(image_data)
+                print("Saved as: song_path.jpeg")
+                song.cover_path = song_path
+            else:
+                print("Processing failed")
+                print(f"Error: {result.get('message')}")
+        except requests.exceptions.ConnectionError:
+            print("Can't connect to microservice")
+        except Exception as e:
+            print(f"Test failed with error: {e}")
+
     def add_song(self):
         if self.file_path:
             source = self.file_path
@@ -187,26 +266,30 @@ class AddSong(QWidget):
                 print(f"File '{source}' successfully copied to '{dest_path}'")
                 title = self.song_name.toPlainText()
                 artist = self.artist_name.toPlainText()
-                new_song = Song(f"data/songs/{file_name}", title, artist)
+                print("attempting to call microservice")
+                self.call_spotify_microservice()
+                print("attempting to make song object")
+                if hasattr(self, 'microservice_data'):
+                    new_song = Song.from_microservice_data(
+                        f"data/songs/{file_name}", 
+                        self.microservice_data
+                    )
+                else:
+                    new_song = Song(f"data/songs/{file_name}", title, artist)
+                self.call_image_microservice(new_song)
                 self.parent.music_player.add_song(new_song)
-                #move this into a seperate function later
-                try:
-                    with open("data/songs.json", "r") as file:
-                        data = json.load(file)
-                except FileNotFoundError:
-                    data = [] 
-                data.append(new_song.to_dict())
-                with open("data/songs.json", "w") as file:
-                    json.dump(data, file, indent=4)
+                self.parent.storage.add_song(new_song)
                 self.file_path = None
                 self.song_name.clear()
                 self.artist_name.clear()
+                self.import_button.setStyleSheet("background-color: #FFDB78;")
             except FileNotFoundError:
                 print(f"Error: Source file not found.")
             except Exception as e:
                 print(f"An error occurred: {e}")
         else:
             print("No file selected, please retry")
+
     def cancel(self):
         self.file_path = None
         self.song_name.clear()
@@ -243,6 +326,16 @@ class PlaySong(QWidget):
         self.song_info = QLabel("No song loaded")
         self.song_info.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.song_info)
+
+        self.image_label = QLabel()
+        self.image_pixmap = QPixmap("assets/placeholder_cover.png")
+        if not self.image_pixmap.isNull():
+            self.image_label.setPixmap(self.image_pixmap)
+        else:
+            self.image_label.setText("Image not found")
+        self.image_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.image_label)
+        
         
         self.edit_layout = QVBoxLayout()
         
@@ -339,6 +432,7 @@ class PlaySong(QWidget):
 
             self.toggle_edit_mode()
             self.update_display()
+    
     def cancel_changes(self):
         self.toggle_edit_mode()
         self.cancel_button.hide()
@@ -388,12 +482,18 @@ class PlaySong(QWidget):
             else:
                 display_text = f"Title: {song.title}\nArtist: {song.artist}\nAlbum: {song.album}\nGenre: {song.genre}"
                 self.song_info.setText(display_text)
+                self.image_pixmap = QPixmap(song.cover_path)
+                if not self.image_pixmap.isNull():
+                    self.image_label.setPixmap(self.image_pixmap)
+                else:
+                    self.image_pixmap = QPixmap("assets/placeholder_cover.png")
         else:
             self.song_info.setText("No song loaded")
     
     def showEvent(self, event):
         super().showEvent(event)
         self.update_display()
+
    
 
 class SongView(QWidget):
@@ -492,102 +592,7 @@ class HelpPage(QWidget):
 
         self.setLayout(layout)
 
-class MusicPlayer:
-    def __init__(self, storage):
-        pygame.mixer.init()
-        self.current_song = None
-        self.status = "stopped"
-        self.storage = storage
-        self.songs = storage.load_songs()
-    
-    def load_song(self, song: Song):
-        try:
-            pygame.mixer.music.load(song.file_path)
-            self.current_song = song
-            self.status = "stopped"
-            print(f"Loaded: {song.file_path}")
-            return True
-        except Exception as e:
-            print(f"Error loading song: {e}")
-            return False
-    
-    def play(self):
-        if not self.current_song:
-            print("No song loaded")
-            return
-        if self.status == "stopped":
-            pygame.mixer.music.play()
-            self.status = "playing"
-            print(f"Started: {self.current_song.title}")
-        if self.status == "paused":
-            pygame.mixer.music.unpause()
-            self.status = "playing"
-            print(f"Resumed: {self.current_song.title}")
-    
-    def pause(self):
-        if self.status == "playing":
-            pygame.mixer.music.pause()
-            self.status = "paused"
-            print(f"Paused: {self.current_song.title}")
-    
-    def stop(self):
-        pygame.mixer.music.stop()
-        self.player_state = "stopped"
-    
-    def add_song(self, song: Song):
-        self.songs.append(song)
 
-    def delete_current_song(self):
-        if self.current_song:
-            self.songs = self.storage.delete_song(self.current_song, self.songs)
-            if self.current_song.file_path not in [s.file_path for s in self.songs]:
-                self.stop()
-                self.current_song = None
-    
-    def update_current_song(self, updated_song: Song):
-        if self.current_song:
-            original_song = self.current_song
-            self.songs = self.storage.update_song(original_song, updated_song, self.songs)
-            self.current_song = updated_song
-
-class Storage():
-    def __init__(self):
-        self.songs_file = "data/songs.json"
-        os.makedirs("data", exist_ok=True)
-
-    def load_songs(self):
-        loaded_songs = []
-        try:
-            with open(self.songs_file, 'r') as f:
-                loaded_songs = json.load(f)
-        except FileNotFoundError:
-            print("Missing data/songs.json")
-        return [Song.from_dict(song) for song in loaded_songs]
-
-    def save_songs(self, songs):
-        songs_to_json = [song.to_dict() for song in songs]
-        with open(self.songs_file, 'w') as f:
-            json.dump(songs_to_json, f, indent=4)
-
-    def delete_song(self, deleted_song, songs):
-        updated_songs = [s for s in songs if s.file_path != deleted_song.file_path]
-        self.save_songs(updated_songs)
-        try:
-            if os.path.exists(deleted_song.file_path):
-                os.remove(deleted_song.file_path)
-        except Exception as e:
-            print(f"Warning: Could not delete audio file: {e}")
-        return updated_songs
-    
-    def update_song(self, og_song, updated_song, songs):
-        updated_songs = []
-        for song in songs:
-            if song.file_path == og_song.file_path:
-                updated_songs.append(updated_song)
-            else:
-                updated_songs.append(song)
-        self.save_songs(updated_songs)
-        return updated_songs
     
 
 if __name__ == "__main__":
