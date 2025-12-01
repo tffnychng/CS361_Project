@@ -9,6 +9,7 @@ class MusicPlayer():
         self.status = "stopped"
         self.storage = storage
         self.songs = storage.load_songs()
+        self.playlist_length = len(self.songs)
     
     def load_song(self, song: Song):
         try:
@@ -46,6 +47,7 @@ class MusicPlayer():
     
     def add_song(self, song: Song):
         self.songs.append(song)
+        self.playlist_length += 1
 
     def delete_current_song(self):
         if self.current_song:

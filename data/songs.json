@@ -1,52 +1,46 @@
 [
     {
-        "file_path": "data/songs/girlfront.mp3",
-        "title": "Girl Front",
-        "artist": "LOONA OEC",
-        "album": "Mix & Match",
-        "genre": "K-pop",
-        "duration": 0.0
-    },
-    {
-        "file_path": "data/songs/Wham! - Last Christmas (Audio).mp3",
-        "title": "Last Christmas",
-        "artist": "Wham",
-        "album": "Unknown Album",
-        "genre": "Synthpop",
-        "duration": 0.0
-    },
-    {
-        "file_path": "data/songs/PinkPantheress - Illegal (Official Video).mp3",
-        "title": "Illegal",
-        "artist": "Pinkpantheress",
-        "album": "Unknown Album",
-        "genre": "Unknown Genre",
-        "duration": 0.0
-    },
-    {
-        "file_path": "data/songs/Mr Smith - Take That Ride.mp3",
-        "title": "12 Blown Tires",
-        "artist": "Tennis",
-        "album": "Unknown Album",
-        "genre": "Unknown Genre",
-        "duration": 0.0
-    },
-    {
-        "file_path": "data/songs/Zara Larsson - Midnight Sun (Official Music Video).mp3",
-        "title": "Midnight Sun",
-        "artist": "Zara Larsson",
-        "album": "Unknown Album",
-        "genre": "Unknown Genre",
-        "duration": 0.0
-    },
-    {
         "file_path": "data/songs/ROSAL\u00cdA, Yahritza Y Su Esencia - La Perla (Official Lyric Video) [gEHK00H_PxQ].mp3",
         "title": "La Perla",
         "artist": "ROSAL\u00cdA",
         "album": "LUX",
         "genre": "latin",
-        "duration": 0.0,
+        "duration": "199.60",
         "cover_url": "https://i.scdn.co/image/ab67616d0000b27393ee2e2f2dfb7de9befcc164",
-        "cover_path": "data/covers/La Perla_ROSAL\u00cdA.jpeg"
+        "cover_path": "data/covers/La Perla_ROSAL\u00cdA.jpeg",
+        "bpm": "143.55"
+    },
+    {
+        "file_path": "data/songs/Zara Larsson - Midnight Sun (Official Music Video).mp3",
+        "title": "Midnight Sun",
+        "artist": "Zara Larsson",
+        "album": "Midnight Sun",
+        "genre": "",
+        "duration": "187.64",
+        "cover_url": "https://i.scdn.co/image/ab67616d0000b2737657f9028ea8bb2c18dca99f",
+        "cover_path": "data/covers/Midnight Sun_Zara Larsson.jpeg",
+        "bpm": "152.00"
+    },
+    {
+        "file_path": "data/songs/PinkPantheress - Illegal (Official Video).mp3",
+        "title": "Illegal",
+        "artist": "PinkPantheress",
+        "album": "Fancy That",
+        "genre": "bedroom pop",
+        "duration": "152.86",
+        "cover_url": "https://i.scdn.co/image/ab67616d0000b273dd4912edb4982f53a381b98e",
+        "cover_path": "data/covers/Illegal_PinkPantheress.jpeg",
+        "bpm": "69.84"
+    },
+    {
+        "file_path": "data/songs/LOONA_ODD EYE CIRCLE - Girl Front - \uc774\ub2ec\uc758 \uc18c\ub140 \uc624\ub4dc\uc544\uc774\uc368\ud074 - SoundLoadMate.com.mp3",
+        "title": "Girl Front",
+        "artist": "LOO\u03a0\u0394 / ODD EYE CIRCLE",
+        "album": "Max & Match",
+        "genre": "k-pop",
+        "duration": "196.60",
+        "cover_url": "https://i.scdn.co/image/ab67616d0000b273fb3c690920c69107439c2866",
+        "cover_path": "assets/placeholder_cover.png",
+        "bpm": "143.55"
     }
 ]

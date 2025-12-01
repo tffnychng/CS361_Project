@@ -12,6 +12,7 @@ class Song:
     duration: float = 0.0  
     cover_url: Optional[str] = None
     cover_path: str = "assets/placeholder_cover.png"
+    bpm: float = 0.0
     
     def __post_init__(self):
         if not self.title:
@@ -28,7 +29,8 @@ class Song:
               'genre': self.genre,
               'duration': self.duration,
               'cover_url': self.cover_url,
-              'cover_path': self.cover_path
+              'cover_path': self.cover_path,
+              'bpm': self.bpm
           }
     @classmethod
     def from_dict(cls, data: dict) -> 'Song':
@@ -40,7 +42,8 @@ class Song:
           genre=data['genre'],
           duration=data['duration'],
           cover_url=data.get('cover_url', None),
-          cover_path=data.get('cover_path', 'assets/placeholder_cover.png')
+          cover_path=data.get('cover_path', 'assets/placeholder_cover.png'),
+          bpm=data.get('bpm', 0.0)
       )
     
     @classmethod

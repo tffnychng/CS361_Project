@@ -76,16 +76,18 @@ class CassetteApp(QMainWindow):
     def setup_zmq_client(self):
         try:
             self.zmq_context = zmq.Context()
-            self.zmq_socket = self.zmq_context.socket(zmq.REQ)
-            self.zmq_socket.connect("tcp://localhost:5555")  
+            self.zmq_5555 = self.zmq_context.socket(zmq.REQ)
+            self.zmq_4000 = self.zmq_context.socket(zmq.REQ)
+            self.zmq_5555.connect("tcp://localhost:5555") 
+            self.zmq_4000.connect("tcp://localhost:4000")   
             print("ZeroMQ client connected to microservice")
         except Exception as e:
             print(f"Failed to setup ZeroMQ client: {e}")
             self.zmq_socket = None
 
     def get_song_info(self, song_name: str, artist_name: str) -> dict:
-        if not self.zmq_socket:
-            return {"error": "Microservice not available"}
+        if not self.zmq_5555:
+            return {"error": "Song Microservice not available"}
         
         try:
             # Send request to microservice
@@ -94,10 +96,10 @@ class CassetteApp(QMainWindow):
                 "song": song_name,
                 "artist": artist_name
             }
-            self.zmq_socket.send_json(request)
+            self.zmq_5555.send_json(request)
             
             # Receive response
-            response = self.zmq_socket.recv_json()
+            response = self.zmq_5555.recv_json()
             print("response received")
             return response.get("playlist", [{}])[0]  # Get first result
             
@@ -105,6 +107,44 @@ class CassetteApp(QMainWindow):
             return {"error": "Microservice timeout"}
         except Exception as e:
             return {"error": f"Microservice error: {str(e)}"}
+    def get_random_num(self, max):
+        if not self.zmq_4000:
+            return {"error": "RNG Microservice not available"}
+        
+        try:
+            request = {
+                "method": "rand",
+                "params": {"min": 0, "max": max}
+            }
+            self.zmq_4000.send_json(request)
+            response = self.zmq_4000.recv_json()
+            print("response received")
+            return response
+            
+        except zmq.Again:
+            return {"error": "Microservice timeout"}
+        except Exception as e:
+            return {"error": f"Microservice error: {str(e)}"}
+    def nav_layout(self, nav_layout):
+        song_view = QPushButton("Song View")
+        song_view.clicked.connect(lambda: self.show_page('songview'))
+        song_view.setStyleSheet("font-size: 10px;")
+        nav_layout.addWidget(song_view)
+
+        play_view = QPushButton("Music Player")
+        play_view.clicked.connect(lambda: self.show_page('playsong'))
+        play_view.setStyleSheet("font-size: 10px;")
+        nav_layout.addWidget(play_view)
+        
+        addsong = QPushButton("Add a Song")
+        addsong.clicked.connect(lambda: self.show_page('addsong'))
+        addsong.setStyleSheet("font-size: 10px;")
+        nav_layout.addWidget(addsong)
+        
+        help = QPushButton("Help")
+        help.clicked.connect(lambda: self.show_page('help'))
+        help.setStyleSheet("font-size: 10px;")
+        nav_layout.addWidget(help)
 
 class StartPage(QWidget):
     def __init__(self, parent):
@@ -132,7 +172,7 @@ class StartPage(QWidget):
         image_label.setAlignment(Qt.AlignCenter)
 
         layout.addWidget(image_label)
-        description = QLabel("Keep all your audio files in one place, create customizable mixtapes, and listen offline anytime")
+        description = QLabel("Keep all your audio files in one place and listen offline anytime")
         description.setWordWrap(True)
         description.setAlignment(Qt.AlignCenter)
         layout.addWidget(description)
@@ -153,7 +193,7 @@ class AddSong(QWidget):
     
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setSpacing(20)
+        layout.setSpacing(10)
       
         title_label = QLabel("Add a Song")
         title_label.setFont(LARGEFONT)
@@ -161,17 +201,7 @@ class AddSong(QWidget):
         layout.addWidget(title_label)
         
         nav_layout = QHBoxLayout()
-        song_view = QPushButton("Song View")
-        song_view.clicked.connect(lambda: self.parent.show_page('songview'))
-        nav_layout.addWidget(song_view)
-        
-        addsong = QPushButton("Add a Song")
-        addsong.clicked.connect(lambda: self.parent.show_page('addsong'))
-        nav_layout.addWidget(addsong)
-        
-        help = QPushButton("Help")
-        help.clicked.connect(lambda: self.parent.show_page('help'))
-        nav_layout.addWidget(help)
+        self.parent.nav_layout(nav_layout)
         
         layout.addLayout(nav_layout)
         
@@ -225,6 +255,23 @@ class AddSong(QWidget):
             self.artist_name.setText(song_info.get("artist", artist_name))
             self.microservice_data = song_info
     
+    def call_audio_microservice(self, file, song):
+        file_path = os.path.abspath(file)
+        response = requests.get(
+            "http://localhost:5002/audio-analysis",
+            json={"file_path": file_path}
+        )
+        result = response.json()
+        try:
+            if result["status"] == "success":
+                song.bpm = result['bpm']
+                song.duration = result['duration']
+                return
+        except requests.exceptions.ConnectionError:
+            print("Can't connect to microservice")
+        except Exception as e:
+            print(f"Test failed with error: {e}")
+
     def call_image_microservice(self, song):
         os.makedirs('data/covers', exist_ok=True)
         if not song.cover_url:
@@ -266,7 +313,7 @@ class AddSong(QWidget):
                 print(f"File '{source}' successfully copied to '{dest_path}'")
                 title = self.song_name.toPlainText()
                 artist = self.artist_name.toPlainText()
-                print("attempting to call microservice")
+                print("attempting to call song microservice")
                 self.call_spotify_microservice()
                 print("attempting to make song object")
                 if hasattr(self, 'microservice_data'):
@@ -276,7 +323,10 @@ class AddSong(QWidget):
                     )
                 else:
                     new_song = Song(f"data/songs/{file_name}", title, artist)
+                print("attempting to call image microservice")
                 self.call_image_microservice(new_song)
+                print("attempting to call audio microservice")
+                self.call_audio_microservice(source, new_song)
                 self.parent.music_player.add_song(new_song)
                 self.parent.storage.add_song(new_song)
                 self.file_path = None
@@ -307,20 +357,15 @@ class PlaySong(QWidget):
     
     def init_ui(self):
         layout = QVBoxLayout()
+        layout.setSpacing(10)
+
+        title_label = QLabel("Music Player")
+        title_label.setFont(LARGEFONT)
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
 
         nav_layout = QHBoxLayout()
-        song_view = QPushButton("Song View")
-        song_view.clicked.connect(lambda: self.parent.show_page('songview'))
-        nav_layout.addWidget(song_view)
-        
-        addsong = QPushButton("Add a Song")
-        addsong.clicked.connect(lambda: self.parent.show_page('addsong'))
-        nav_layout.addWidget(addsong)
-        
-        help = QPushButton("Help")
-        help.clicked.connect(lambda: self.parent.show_page('help'))
-        nav_layout.addWidget(help)
-        
+        self.parent.nav_layout(nav_layout)
         layout.addLayout(nav_layout)
 
         self.song_info = QLabel("No song loaded")
@@ -364,9 +409,13 @@ class PlaySong(QWidget):
         self.play_button.setText("Play")
         self.play_button.clicked.connect(self.play_current_song)
         controls_layout.addWidget(self.play_button)
+        
+        self.skip_button = QPushButton()
+        self.skip_button.setText("Skip")
+        self.skip_button.clicked.connect(self.skip_current_song)
+        controls_layout.addWidget(self.skip_button)
         layout.addLayout(controls_layout)
         
-        layout.addLayout(controls_layout)
         
         update_layout = QHBoxLayout()
         
@@ -480,7 +529,9 @@ class PlaySong(QWidget):
             if self.edit_mode:
                 self.song_info.setText("Editing Song")
             else:
-                display_text = f"Title: {song.title}\nArtist: {song.artist}\nAlbum: {song.album}\nGenre: {song.genre}"
+                stats = [f"Title: {song.title}", f"Artist: {song.artist}", f"Album: {song.album}",
+                         f"Genre: {song.genre}", f"Length: {song.duration}", f"BPM: {song.bpm}"]
+                display_text = "\n".join(stats)
                 self.song_info.setText(display_text)
                 self.image_pixmap = QPixmap(song.cover_path)
                 if not self.image_pixmap.isNull():
@@ -492,6 +543,15 @@ class PlaySong(QWidget):
     
     def showEvent(self, event):
         super().showEvent(event)
+        self.update_display()
+
+    def skip_current_song(self):
+        rand_num = self.parent.get_random_num(self.parent.music_player.playlist_length -1)
+        while self.parent.music_player.songs[int(rand_num)].file_path ==  self.parent.music_player.current_song.file_path:
+            rand_num = self.parent.get_random_num(self.parent.music_player.playlist_length -1)
+        self.status = "stopped"
+        self.parent.music_player.load_song(self.parent.music_player.songs[int(rand_num)])
+        self.play_current_song()
         self.update_display()
 
    
@@ -512,17 +572,7 @@ class SongView(QWidget):
         layout.addWidget(title_label)
 
         nav_layout = QHBoxLayout()
-        song_view = QPushButton("Song View")
-        song_view.clicked.connect(lambda: self.parent.show_page('songview'))
-        nav_layout.addWidget(song_view)
-        
-        addsong = QPushButton("Add a Song")
-        addsong.clicked.connect(lambda: self.parent.show_page('addsong'))
-        nav_layout.addWidget(addsong)
-        
-        help = QPushButton("Help")
-        help.clicked.connect(lambda: self.parent.show_page('help'))
-        nav_layout.addWidget(help)
+        self.parent.nav_layout(nav_layout)
         
         layout.addLayout(nav_layout)
         self.song_list = QListWidget()
@@ -567,17 +617,7 @@ class HelpPage(QWidget):
         layout.addWidget(title_label)
 
         nav_layout = QHBoxLayout()
-        song_view = QPushButton("Song View")
-        song_view.clicked.connect(lambda: self.parent.show_page('songview'))
-        nav_layout.addWidget(song_view)
-        
-        addsong = QPushButton("Add a Song")
-        addsong.clicked.connect(lambda: self.parent.show_page('addsong'))
-        nav_layout.addWidget(addsong)
-        
-        help = QPushButton("Help")
-        help.clicked.connect(lambda: self.parent.show_page('help'))
-        nav_layout.addWidget(help)
+        self.parent.nav_layout(nav_layout)
         
         layout.addLayout(nav_layout)
         layout.addStretch(1)
